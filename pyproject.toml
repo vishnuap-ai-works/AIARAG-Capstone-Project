@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rag-pipeline"
+version = "0.1.0"
+description = "Production RAG Pipeline"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "streamlit",
+    "openai",
+    "langchain",
+    "chromadb",
+    "python-dotenv",
+    "pydantic",
+    "pydantic-settings",
+    "pytest",
+    "requests"
+]
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

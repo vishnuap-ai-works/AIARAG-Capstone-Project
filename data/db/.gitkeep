@@ -1,0 +1,1 @@
+This directory stores local database files such as SQLite files (for evaluation tracking) and ChromaDB persistent storage directories (for vector embeddings).

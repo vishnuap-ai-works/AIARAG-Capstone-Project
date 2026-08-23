@@ -1,0 +1,21 @@
+{
+    "id" : "g001", 
+    "question":"In USA what is the medical insurance premium contribution from company side?", 
+    "ideal_answer":"In the United States, medical insurance is provided through Blue Cross Blue Shield PPO. The company pays 75% of the premium and the employee pays the other 25%", 
+    "notes":"In the United States, medical insurance is provided through Blue Cross Blue Shield PPO. The company pays 75% of the premium and the employee pays the other 25%. Open enrollment is in November every year, with new coverage beginning December 1. Marriages and domestic partnerships are covered. You’re eligible for coverage on your first day of employment. If you are terminated or resign from 37signals, your coverage will end on the last day of the month of your separation date and you may be eligible for continued coverage after that (COBRA).", 
+    "level":"happy_path"
+},
+{
+    "id" : "g002", 
+    "question":"I heard dental insurance covering 90% of premium, does medical insurance also converd 90%? or anything to be paid from my side?", 
+    "ideal_answer":"In case of Medical Insurance the company pays 75% of the premium and the employee pays the other 25%, But in case of Dental Insurance the company pays 100% of the premium", 
+    "notes":"", 
+    "level":"hard_path"
+},
+{
+    "id" : "g003", 
+    "question":"I heard the company is covering 30% of the vehicle insurance premium for the employee. is that correct?", 
+    "ideal_answer":"No, the company does not cover vehicle insurance for the employee, company covers only Medical Insurance, Dental Insurance..etc", 
+    "notes":"", 
+    "level":"edge_path"
+}
