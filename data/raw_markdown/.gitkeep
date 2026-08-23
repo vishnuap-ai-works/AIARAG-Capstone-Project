@@ -1,0 +1,1 @@
+This directory stores raw Markdown (.md) or text files that act as the source knowledge base for the RAG pipeline. The chunker will read files from this directory to populate the vector store. Ensure documents are clean and UTF-8 encoded.

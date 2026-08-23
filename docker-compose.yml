@@ -1,0 +1,19 @@
+# Docker Compose configuration
+# Spins up the FastAPI backend, RAG UI, and an optional vector database service locally.
+version: "3.9"
+services:
+  rag-api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+  rag-ui:
+    build: .
+    command: streamlit run ui/app.py --server.port=8501 --server.address=0.0.0.0
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    depends_on:
+      - rag-api
