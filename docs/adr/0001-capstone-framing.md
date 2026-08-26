@@ -29,7 +29,7 @@ Streamlit UI  (ui/app.py)
 FastAPI  (api/main.py)
      │
      ├── Embeddings  (src/rag/embeddings.py)
-     │     └── text-embedding-ada-002  (OpenAI)
+     │     └── text-embedding-3-small / text-embedding-3-large  (OpenAI)
      │
      ├── Retriever  (src/rag/retriever.py)
      │     ├── DenseRetriever   — cosine similarity top-k
@@ -39,7 +39,7 @@ FastAPI  (api/main.py)
      │     └── ChromaDB  (local, persisted to data/db/)
      │
      └── Generator  (src/rag/generator.py)
-           └── GPT-4 / Claude  — context-grounded answer generation
+           └── GPT-4  — context-grounded answer generation
 ```
 
 **Ingestion pipeline** (`src/pipeline/store.py`):  
