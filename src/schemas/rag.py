@@ -6,8 +6,11 @@ Classes:
 - DocumentChunk: Represents a single piece of text with metadata and an optional embedding.
 - RetrievalResult: Represents a chunk fetched from the vector store with a similarity score.
 """
+
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel
-from typing import Dict, Any, List, Optional
+
 
 class DocumentChunk(BaseModel):
     text: str

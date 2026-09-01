@@ -5,7 +5,7 @@ __pycache__/
 *.db
 eval_runs.db
 .DS_Store
-
+*.egg-info/
 # Ignore runtime data but keep folders
 data/uploads/*
 !data/uploads/.gitkeep
