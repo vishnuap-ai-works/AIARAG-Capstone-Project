@@ -7,17 +7,20 @@ name = "rag-pipeline"
 version = "0.1.0"
 description = "Production RAG Pipeline"
 dependencies = [
-    "fastapi",
-    "uvicorn",
-    "streamlit",
-    "openai",
-    "langchain",
-    "chromadb",
-    "python-dotenv",
-    "pydantic",
-    "pydantic-settings",
-    "pytest",
-    "requests"
+    "fastapi==0.141.1",
+    "uvicorn==0.52.4",
+    "streamlit==1.62.0",
+    "openai==3.6.0",
+    "langchain==1.3.18",
+    "chromadb==1.5.9",
+    "python-dotenv==1.2.3",
+    "pydantic==2.13.5",
+    "pydantic-settings==2.15.0",
+    "python-docx==1.2.0",
+    "aiohttp==3.14.3",
+    "requests==2.34.2",
+    "pytest==9.1.1",
+    "ollama",
 ]
 
 [tool.black]

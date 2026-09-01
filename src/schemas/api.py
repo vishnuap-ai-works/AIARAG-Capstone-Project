@@ -7,12 +7,16 @@ Classes:
 - QueryResponse: Generated answer, retrieved context, and metadata.
 - UploadResponse: Status of document ingestion.
 """
-from pydantic import BaseModel
+
 from typing import List, Optional
+
+from pydantic import BaseModel
+
 
 class QueryRequest(BaseModel):
     query: str
     top_k: Optional[int] = 5
+
 
 class QueryResponse(BaseModel):
     answer: str
