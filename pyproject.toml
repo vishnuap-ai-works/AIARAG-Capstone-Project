@@ -21,6 +21,10 @@ dependencies = [
     "requests==2.34.2",
     "pytest==9.1.1",
     "ollama",
+    "qdrant-client",
+    "pinecone-client",
+    "sentence-transformers",
+    "cohere",
 ]
 
 [tool.black]

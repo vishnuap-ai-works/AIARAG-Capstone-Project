@@ -33,7 +33,9 @@ class SlidingWindowChunking(BaseChunker):
         self.overlap = overlap
 
     async def chunk(self, text):
-        logger.info(f"Starting sliding window chunking. Text length: {len(text) if text else 0}, Chunk size: {self.chunk_size}, Overlap: {self.overlap}")
+        logger.info(
+            f"Starting sliding window chunking. Text length: {len(text) if text else 0}, Chunk size: {self.chunk_size}, Overlap: {self.overlap}"
+        )
         chunks = []
         try:
             start = 0
@@ -49,12 +51,12 @@ class SlidingWindowChunking(BaseChunker):
                 if end == text_length:
                     break
                 start += self.chunk_size - self.overlap
-                
+
             logger.info(f"Chunking completed. Generated {len(chunks)} chunks.")
         except Exception as e:
             logger.error(f"Error during chunking: {e}")
             raise
-            
+
         return chunks
 
 
@@ -65,6 +67,7 @@ class SectionChunking(BaseChunker):
 
     async def chunk(self, text):
         pass
+
 
 # TODO
 class SemanticChunker(BaseChunker):

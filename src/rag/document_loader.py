@@ -85,6 +85,6 @@ class DocumentLoadFactory:
 
         if ext == ".md":
             return MarkdownLoader(path)
-        
+
         logger.error(f"Unsupported file extension: {ext} for file {path.name}")
         raise ValueError(f"Unsupported file extension: {ext}")

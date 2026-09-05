@@ -8,6 +8,7 @@ Classes:
 """
 
 import asyncio
+import os
 from pathlib import Path
 
 from config.logging_config import setup_logger
@@ -15,24 +16,28 @@ from config.settings import settings
 from rag.chunking import SlidingWindowChunking
 from rag.document_loader import DocumentLoadFactory
 from rag.embeddings import ModelSelector
+from rag.vector_store import VectorStoreFactory
 
 logger = setup_logger(__name__)
 
 
 class DocumentIngestionPipeline:
 
-    def __init__(self, chunker=None, embedder=None):
+    def __init__(self, chunker=None, embedder=None, vector_store=None):
         logger.info("Initializing DocumentIngestionPipeline")
         self.chunker = chunker or SlidingWindowChunking(
             chunk_size=settings.CHUNK_SIZE, overlap=settings.CHUNK_OVERLAP
         )
         self.embedder = embedder or ModelSelector
+        # Configure Vector Store from settings via Factory
+        self.vector_store = vector_store or VectorStoreFactory.get_vector_store()
 
     async def ingest_file(self, path) -> list[str]:
         try:
             path_obj = Path(path)
             file_name = path_obj.name
-            
+            file_type = path_obj.suffix.lstrip(".")
+
             logger.info(f"1. Loading Document.....{file_name}")
             loader = DocumentLoadFactory.get_loader(path_obj)
             text_content = await loader.load()
@@ -47,6 +52,14 @@ class DocumentIngestionPipeline:
             logger.info(f"Successfully generated {len(embedded)} embeddings.")
 
             logger.info(f"4. Vector Storage.....{file_name}")
+
+            # Store the data in the vector store
+            self.vector_store.add_document(
+                filename=file_name,
+                file_type=file_type,
+                chunks=chunks,
+                embeddings=embedded,
+            )
             logger.info(f"Successfully completed vector storage for: {file_name}")
             return chunks
         except Exception as e:

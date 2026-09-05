@@ -21,8 +21,8 @@ from abc import ABC, abstractmethod
 import ollama
 from openai import AsyncOpenAI
 
-from config.settings import settings
 from config.logging_config import setup_logger
+from config.settings import settings
 
 logger = setup_logger(__name__)
 
@@ -64,35 +64,58 @@ class OllamaEmbeddings(BaseEmbeddingModel):
             logger.error(f"Ollama embedding generation failed: {e}")
             raise
 
-#TODO
+
+# TODO
 class HuggingFaceEmbeddings(BaseEmbeddingModel):
     pass
 
 
 class ModelSelector:
     @staticmethod
-    async def get_embedded(chunks: list[str]) -> list[list[float]]:
-        vector = []
-
-        # Instantiate model once
+    def _get_model():
         if settings.EMBEDDING_MODEL_SOURCE == "openai":
-            model = OpenAIEmbeddings()
+            return OpenAIEmbeddings()
         elif settings.EMBEDDING_MODEL_SOURCE == "ollama":
-            model = OllamaEmbeddings()
+            return OllamaEmbeddings()
         else:
             raise ValueError(
                 f"Unknown embedding model source: {settings.EMBEDDING_MODEL_SOURCE}"
             )
 
-        logger.info(f"Generating embeddings for {len(chunks)} chunks using {settings.EMBEDDING_MODEL_SOURCE} model")
-        
+    @staticmethod
+    async def get_embedded(chunks: list[str]) -> list[list[float]]:
+        vector = []
+        model = ModelSelector._get_model()
+
+        logger.info(
+            f"Generating embeddings for {len(chunks)} chunks using {settings.EMBEDDING_MODEL_SOURCE} model"
+        )
+
         try:
+            chunk_size = len(chunks)
+            start = 1
             for chunk in chunks:
                 embedded = await model.get_embedding(chunk)
                 vector.append(embedded)
+                logger.info(
+                    f"Embedding Progress: {round(start / chunk_size * 100, 2)}%"
+                )
+                start += 1
             logger.info(f"Successfully generated {len(vector)} embeddings.")
         except Exception as e:
             logger.error(f"Error during batch embedding generation: {e}")
             raise
 
         return vector
+
+    @staticmethod
+    async def get_single_embedding(query: str) -> list[float]:
+        model = ModelSelector._get_model()
+        logger.info(
+            f"Generating embedding for query using {settings.EMBEDDING_MODEL_SOURCE} model"
+        )
+        try:
+            return await model.get_embedding(query)
+        except Exception as e:
+            logger.error(f"Error generating single embedding: {e}")
+            raise

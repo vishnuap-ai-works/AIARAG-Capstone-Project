@@ -1,4 +1,4 @@
-# How to Run the Ingestion Pipeline
+# How to Run the RAG Pipeline
 
 Follow these quick instructions to configure your environment variables and execute the ingestion pipeline script.
 
@@ -40,3 +40,21 @@ bash bin/run_ingestion.sh
 ```
 
 *These scripts will automatically configure your local Python environment and begin loading, chunking, and embedding the files located in the `DATA_DIRECTORY` specified in your `.env`.*
+
+---
+
+## 🤖 Step 3: Run the Inference Script (`inference.py`)
+
+Once you've ingested your data, you can query your vector store and generate answers using the LLM! 
+
+**If you are on Mac or Linux:**
+```bash
+sh bin/run_inference.sh "your question here"
+```
+
+**If you are on Windows (PowerShell):**
+```powershell
+.\bin\run_inference.ps1 "your question here"
+```
+
+*These scripts will fetch the closest document chunks from your vector store, re-rank them (if enabled in `.env`), and feed them into your selected generator model.*
