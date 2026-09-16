@@ -1,15 +1,26 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 def build_generator_prompt(query: str, context_str: str) -> str:
-    return f"""You are a friendly, conversational AI assistant. Use the following context to answer the user's question naturally and clearly. Talk to the user like a human expert.
-If the answer is not in the context, politely say "I don't know based on the provided context."
+    try:
+        logger.info(f"Building generator prompt for query: {query}")
+        return f"""You are a friendly, conversational AI assistant. Use the following context to answer the user's question naturally and clearly. Talk to the user like a human expert.
+If the answer is not in the context, politely say "I don't know based on the provided context.if you want to ask any questions to the user feel free to ask for understanding better context"
 
 Context:
 {context_str}
 
 User Question: {query}
 Answer:"""
+    except Exception as e:
+        logger.error(f"Error building generator prompt: {str(e)}")
+        raise
 
 def build_comprehensive_eval_prompt(query: str, expected_answer: str, context_str: str, generated_answer: str) -> str:
-    return f"""
+    try:
+        logger.info(f"Building comprehensive eval prompt for query: {query}")
+        return f"""
 You are an expert evaluator. Evaluate the generated answer across three metrics: Task Success, Groundedness, and Retrieval Hit.
 Evaluate based on SEMANTIC MEANING and FACTUAL ACCURACY, not exact wording.
 
@@ -27,3 +38,6 @@ Expected Answer: {expected_answer}
 Context: {context_str}
 Generated Answer: {generated_answer}
 """
+    except Exception as e:
+        logger.error(f"Error building comprehensive eval prompt: {str(e)}")
+        raise

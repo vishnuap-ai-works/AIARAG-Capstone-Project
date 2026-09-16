@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     VECTOR_STORE_TYPE: str = "json"
     VECTOR_STORE_PATH: str = "data/vector_store.json"
     CHROMA_PERSIST_DIR: str = "data/chroma"
+    CHROMA_COLLECTION: str = "rag_documents"
     PINECONE_API_KEY: str = ""
     PINECONE_INDEX_NAME: str = ""
     QDRANT_URL: str = ""

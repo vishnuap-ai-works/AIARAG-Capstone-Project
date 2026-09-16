@@ -25,7 +25,7 @@ import os
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
-
+from config.settings import settings
 
 class BaseVectorStore(ABC):
     @abstractmethod
@@ -118,16 +118,54 @@ class JSONVectorStore(BaseVectorStore):
         return results[:top_k]
 
 
-# TODO: Implement ChromaDBStore
 class ChromaDBStore(BaseVectorStore):
+    def __init__(self, persist_directory: str = "data/db/chroma"):
+        import chromadb
+        self.persist_directory=persist_directory
+        os.makedirs(self.persist_directory, exist_ok=True)
+        self.client = chromadb.PersistentClient(path=persist_directory)
+        self.collection = self.client.get_or_create_collection(name=settings.CHROMA_COLLECTION)
     def add_document(
         self, filename: str, file_type: str, chunks: list, embeddings: list
     ):
-        pass
+        if not chunks or not embeddings:
+            return
+
+        ids = []
+        metadata = []
+        for item in range(len(chunks)):
+            ids.append(f"{filename}_{item}")
+            metadata.append({"file_name" : filename, "file_type" :  file_type})
+
+        self.collection.upsert(
+            documents=chunks,
+            embeddings=embeddings,
+            metadatas=metadata,
+            ids=ids
+        )
 
     def search(self, query_embedding: list[float], top_k: int = 5) -> list[dict]:
-        pass
+        result = self.collection.query(
+            query_embeddings=[query_embedding],
+            n_results=top_k
+        )
 
+        results = []
+
+        for i in range(len(result["documents"][0])):
+            doc = result["documents"][0][i]
+            metadata = result["metadatas"][0][i]
+            score = result["distances"][0][i]
+
+            results.append(
+            {
+                "chunk": doc,
+                "metadata": metadata,
+                "score": score
+,
+            }
+            )
+        return results
 
 # TODO: Implement PineconeStore
 class PineconeStore(BaseVectorStore):
@@ -140,15 +178,75 @@ class PineconeStore(BaseVectorStore):
         pass
 
 
-# TODO: Implement QdrantStore
+
 class QdrantStore(BaseVectorStore):
+    def __init__(self, url: str, api_key: str, collection_name: str):
+        from qdrant_client import QdrantClient
+        self.collection_name = collection_name
+        self.client = QdrantClient(url=url, api_key=api_key)
+        # Aticipate Collection does not exist
+        self.collection_exist=False
+
     def add_document(
         self, filename: str, file_type: str, chunks: list, embeddings: list
     ):
-        pass
+        if not chunks or not embeddings:
+            return
+        from qdrant_client.models import PointStruct, VectorParams, Distance
+
+        # Create Collection if not exist
+        if not self.collection_exist: # True
+            try:
+                self.client.get_collections(collection_name=self.collection_name)
+                self.collection_exist=True
+            except Exception:
+                vector_size = len(embeddings[0]) # 384, 762, 1058
+                # Create collection
+                self.client.create_collection(
+                    collection_name=self.collection_name,
+                    vectors_config=VectorParams(size = vector_size, distance=Distance.COSINE),
+                )
+                self.collection_exist=True
+
+        # Adding documents in to qdrant
+        points = []
+        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+            point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{filename}_{i}"))
+            points.append(
+                PointStruct(
+                    id = point_id,
+                    vector=embedding,
+                    payload={"chunk" : chunk, "file_name" : filename, "file_type" : file_type}
+                )
+            )
+        self.client.upsert(
+            collection_name=self.collection_name,
+            points=points
+        )
 
     def search(self, query_embedding: list[float], top_k: int = 5) -> list[dict]:
-        pass
+        try:
+            temp = self.client.query_points(
+                collection_name = self.collection_name,
+                query = query_embedding,
+                limit = top_k
+            )
+        except Exception as e:
+            return []
+
+        results = []
+        for item in temp.points:
+            results.append(
+                {
+               "chunk": item.payload["chunk"],
+               "metadata": {
+                   'file_name' : item.payload["file_name"],
+                   'file_type' : item.payload["file_type"]
+               },
+               "score": item.score
+                }
+            )
+        return results
 
 
 class VectorStoreFactory:
