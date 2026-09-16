@@ -36,6 +36,28 @@ class LLMGenerator:
         context_str = "\n\n".join([doc.get("chunk", str(doc)) if isinstance(doc, dict) else str(doc) for doc in context_docs])
         return build_generator_prompt(query, context_str)
 
+    async def generate_text(self, prompt: str) -> str:
+        """Generic method to generate text given a prompt (e.g. for query augmentation)."""
+        logger.info(f"Generating text using {self.source} ({self.model})")
+        try:
+            if self.source == "openai":
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=settings.OPENAI_TEMPERATURE
+                )
+                return response.choices[0].message.content
+            elif self.source == "ollama":
+                response = await self.client.generate(
+                    model=self.model, 
+                    prompt=prompt, 
+                    options={"temperature": settings.OLLAMA_TEMPERATURE}
+                )
+                return response["response"]
+        except Exception as e:
+            logger.error(f"Error generating text: {e}")
+            raise
+
     async def generate_answer(
         self, query: str, retrieved_context: list[dict], return_usage: bool = False
     ):

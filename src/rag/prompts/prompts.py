@@ -41,3 +41,28 @@ Generated Answer: {generated_answer}
     except Exception as e:
         logger.error(f"Error building comprehensive eval prompt: {str(e)}")
         raise
+
+def build_multi_query_prompt(query: str, num_queries: int = 3) -> str:
+    try:
+        logger.info(f"Building multi-query prompt for query: {query}")
+        return f"""You are an AI language model assistant. Your task is to generate {num_queries} 
+different versions of the given user question to retrieve relevant documents from a vector 
+database. By generating multiple perspectives on the user question, your goal is to help
+the user overcome some of the limitations of the distance-based similarity search. 
+Provide these alternative questions separated by newlines. DO NOT number them. DO NOT add any extra text.
+
+Original question: {query}"""
+    except Exception as e:
+        logger.error(f"Error building multi-query prompt: {str(e)}")
+        raise
+
+def build_query_decomposition_prompt(query: str) -> str:
+    try:
+        logger.info(f"Building query decomposition prompt for query: {query}")
+        return f"""You are a helpful assistant that generates multiple sub-questions related to an input question. 
+The goal is to break down the input into a set of sub-problems / sub-questions that can be answers in isolation. 
+Generate multiple search queries related to: {query} \n
+Output (3 queries): Provide these alternative questions separated by newlines. DO NOT number them. DO NOT add any extra text."""
+    except Exception as e:
+        logger.error(f"Error building query decomposition prompt: {str(e)}")
+        raise

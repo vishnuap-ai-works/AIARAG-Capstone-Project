@@ -66,5 +66,8 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP: int = 50
     TOP_K: int = 5
 
+    USE_MULTI_QUERY: bool = False
+    USE_QUERY_DECOMPOSITION: bool = False
+
 
 settings = Settings()
