@@ -22,12 +22,13 @@ The ingestion script relies on environment variables to know where your data is 
    * **`DATA_DIRECTORY`**: Provide the absolute path to the folder where your raw `.md` or `.txt` files live. (e.g., `/Users/yourname/Documents/.../data/test/`)
    * **`EMBEDDING_MODEL_SOURCE`**: Set this to `openai`, `ollama`, or `docker` depending on what you want to use.
    * **`OPENAI_API_KEY`**: If using OpenAI, paste your secret API key here.
+   * **`USE_HYBRID_SEARCH` / `USE_HYBRID_EMBEDDING`**: Set to `true` to enable sparse vectors (keyword search via `fastembed` SPLADE) and Reciprocal Rank Fusion (RRF) in your vector store.
 
 ---
 
 ## 🚀 Step 2: Run the Ingestion Script (`store.py`)
 
-We have provided convenient shell scripts in the `bin/` folder to automatically set up your virtual environment, install dependencies, and execute the data ingestion pipeline (`src/pipeline/store.py`).
+We have provided convenient shell scripts in the `bin/` folder to automatically set up your virtual environment via `uv`, install dependencies (like `fastembed` for sparse embeddings), and execute the data ingestion pipeline (`src/pipeline/store.py`).
 
 **If you are on Mac or Linux:**
 ```bash

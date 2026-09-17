@@ -31,7 +31,7 @@ It coordinates the flow of data through three primary RAG modules:
 
 1. **Document Loader** (`document_loader.py`): Extracts raw text from files.
 2. **Chunking** (`chunking.py`): Splits the raw text into manageable pieces.
-3. **Embedding** (`embeddings.py`): Converts those pieces into mathematical vectors.
+3. **Embedding** (`embeddings.py`): Converts those pieces into mathematical vectors (both Dense and Sparse vectors, if Hybrid is enabled).
 
 ---
 
@@ -71,7 +71,7 @@ flowchart TD
 ### Deep Dive into the Modules:
 * **`document_loader.py`**: Utilizes a Factory Pattern to determine if a file is a `.txt` or `.md` file, and uses asynchronous threads to read the file from the disk without blocking the system.
 * **`chunking.py`**: Implements a Sliding Window technique. It takes the massive string of raw text returned by the loader and cuts it into chunks of exactly 1200 characters, leaving a 200-character overlap between chunks so that context isn't lost at the boundaries.
-* **`embeddings.py`**: Takes the array of text chunks and passes them to a configured Machine Learning model (like OpenAI or Ollama). The model translates the semantic meaning of the text into dense arrays of floating-point numbers (vectors), which are ultimately what the vector database uses to perform similarity searches.
+* **`embeddings.py`**: Takes the array of text chunks and passes them to configured Machine Learning models (like OpenAI or Ollama for dense embeddings, and `fastembed` SPLADE/BM25 for sparse embeddings). The model translates the semantic meaning of the text into dense arrays of floating-point numbers (vectors) and keyword weights (sparse vectors), which are ultimately what the vector database uses to perform similarity searches.
 
 ---
 
@@ -115,6 +115,6 @@ flowchart TD
 ```
 
 ### Deep Dive into the Inference Modules:
-* **`retriever.py`**: Embeds the user query and performs a similarity search against the vector database to find the most relevant document chunks. It optionally utilizes `reranker.py` to refine the results.
+* **`retriever.py`**: Embeds the user query (dense and optionally sparse vectors) and performs a similarity search against the vector database to find the most relevant document chunks. For hybrid search, it handles Reciprocal Rank Fusion (RRF) natively or via manual fallback depending on the underlying vector store. It optionally utilizes `reranker.py` to refine the results.
 * **`reranker.py`**: (Optional) Acts as a secondary retrieval stage. It takes the initial results from the retriever and scores them using a Cross-Encoder model to ensure only the highest-quality context is returned.
 * **`generator.py`**: Takes the highly relevant context chunks and the user's original query, injects them into an LLM prompt template, and calls the LLM to synthesize a conversational and accurate answer.

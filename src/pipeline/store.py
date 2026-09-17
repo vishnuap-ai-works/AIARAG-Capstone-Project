@@ -49,7 +49,13 @@ class DocumentIngestionPipeline:
 
             logger.info(f"3. Embeddings.....{file_name}")
             embedded = await self.embedder.get_embedded(chunks)
-            logger.info(f"Successfully generated {len(embedded)} embeddings.")
+            logger.info(f"Successfully generated {len(embedded)} dense embeddings.")
+
+            sparse_embedded = None
+            if getattr(settings, "USE_HYBRID_EMBEDDING", True):
+                sparse_embedded = self.embedder.get_sparse_embedded(chunks)
+                if sparse_embedded:
+                    logger.info(f"Successfully generated {len(sparse_embedded)} sparse embeddings.")
 
             logger.info(f"4. Vector Storage.....{file_name}")
 
@@ -59,6 +65,7 @@ class DocumentIngestionPipeline:
                 file_type=file_type,
                 chunks=chunks,
                 embeddings=embedded,
+                sparse_embeddings=sparse_embedded,
             )
             logger.info(f"Successfully completed vector storage for: {file_name}")
             return chunks

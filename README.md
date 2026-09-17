@@ -63,6 +63,7 @@ This is the heart of the system where raw documents are transformed into AI-read
 - **`retriever.py`**: Takes a user's query, embeds it, and fetches the most relevant chunks from the `vector_store.py`. Built to support dense vector search, sparse keyword search (BM25), and hybrid approaches.
 - **`reranker.py`**: A secondary retrieval stage to improve accuracy. Implements a `RerankerFactory` that dynamically selects between local rerankers (`CrossEncoderReranker` via `sentence-transformers`) and cloud APIs (`CohereReranker`).
 - **`generator.py`**: Bridges the gap between retrieved documents and the final user answer. It injects the context from `retriever.py` into prompt templates and makes the final LLM API call to generate the answer.
+- **`scratch.py`**: A utility script used for manually testing and verifying database operations (such as deduplication and deletion logic) against active Vector Stores like ChromaDB and Qdrant.
 - **`prompts/`**: A directory intended to hold `.txt` files containing the raw system and user prompt instructions for the LLM.
 
 ## ⚙️ 2. Data Persistence & Orchestration (`src/pipeline/`)

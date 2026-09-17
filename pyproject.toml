@@ -26,6 +26,7 @@ dependencies = [
     "sentence-transformers",
     "cohere",
     "huggingface_hub",
+    "fastembed",
 ]
 
 [tool.black]

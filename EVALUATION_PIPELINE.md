@@ -81,6 +81,8 @@ When a specific metric drops below your thresholds, you can adjust the pipeline 
 - **Increase `TOP_K`**: Retrieve more documents to increase the surface area of potential hits.
 - **Adjust Chunking**: If chunks are too small, context is lost. If they are too large, the embeddings get diluted. Adjust `CHUNK_SIZE` and `CHUNK_OVERLAP`.
 - **Change Embedding Model**: Switch `OPENAI_API_EMBEDDING_MODEL` to a more capable model (e.g., from `text-embedding-3-small` to `text-embedding-3-large`).
+- **Enable `USE_HYBRID_SEARCH`**: Combines dense semantic search with sparse keyword search (e.g., BM25/SPLADE). **When to use**: Turn this on if the documents contain domain-specific terminology, acronyms, or exact IDs where semantic models struggle but exact keyword matching excels.
+- **Enable `USE_MULTI_QUERY` or `USE_QUERY_DECOMPOSITION`**: Uses an LLM to generate variations or sub-components of the user's original query, casting a wider semantic net. **When to use**: Turn these on if users ask vague, multi-part, or highly complex questions that a single vector representation can't accurately capture.
 - **Use a Reranker**: Implement a cross-encoder to re-rank the `TOP_K` results for better relevancy.
 
 ### If Groundedness is low (Precision is suffering):
@@ -96,6 +98,8 @@ When a specific metric drops below your thresholds, you can adjust the pipeline 
 
 ### If Latency or Cost is too high:
 - **Switch to a smaller model**: Change `OPENAI_LLM_MODEL` to `gpt-4o-mini` or use `OLLAMA_LLM_MODEL` (local inference costs $0).
+- **Disable Advanced Retrievers**: If `USE_MULTI_QUERY` or `USE_QUERY_DECOMPOSITION` are enabled, they invoke the LLM to rewrite queries *before* retrieval. This significantly increases both latency (extra LLM calls) and cost. Turn these off if speed is the priority.
+- **Disable `USE_HYBRID_SEARCH`**: Generating a second sparse embedding and performing dual-retrieval/fusion adds a slight latency overhead (though it rarely affects LLM costs).
 - **Decrease `TOP_K`**: Retrieving and passing fewer chunks reduces the input token count significantly, which lowers both latency and cost.
 
 ---

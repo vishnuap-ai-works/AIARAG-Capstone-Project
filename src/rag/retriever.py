@@ -63,7 +63,24 @@ class DenseRetriever(BaseRetriever):
             
             for q in queries_to_embed:
                 query_embedding = await ModelSelector.get_single_embedding(q)
-                results = self.vector_store.search(query_embedding, top_k=fetch_k)
+                
+                sparse_embedding = None
+                if getattr(settings, "USE_HYBRID_SEARCH", False):
+                    try:
+                        sparse_obj = ModelSelector.get_single_sparse_embedding(q)
+                        if sparse_obj:
+                            sparse_embedding = {
+                                "indices": sparse_obj.indices.tolist(),
+                                "values": sparse_obj.values.tolist()
+                            }
+                    except Exception as e:
+                        logger.warning(f"Failed to generate sparse query embedding: {e}")
+                
+                results = self.vector_store.search(
+                    query_embedding, 
+                    top_k=fetch_k, 
+                    sparse_embedding=sparse_embedding
+                )
                 
                 for r in results:
                     chunk_text = r.get("chunk", str(r))

@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     QDRANT_API_KEY: str = ""
     QDRANT_COLLECTION: str = ""
 
+    USE_HYBRID_SEARCH: bool = False
+    USE_HYBRID_EMBEDDING: bool = True
+    SPARSE_EMBEDDING_MODEL: str = "splade"  # Options: splade, bm25
+    SPLADE_MODEL: str = "prithvida/Splade_PP_en_v1"
+    BM25_MODEL: str = "Qdrant/bm25"
+
     USE_RERANKER: bool = False
     RERANKER_TYPE: str = "cross_encoder"  # Options: cross_encoder, cohere
     RERANKER_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"

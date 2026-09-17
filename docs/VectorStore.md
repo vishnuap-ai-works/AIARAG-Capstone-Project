@@ -149,3 +149,14 @@ This document provides a comprehensive comparison of the most popular vector dat
 | **MongoDB** | Document DB | Keeps vectors in Mongo documents | Medium | Yes |
 | **Elasticsearch**| Search Engine | Best-in-class lexical + vector hybrid | Large | Strong |
 | **FAISS** | Library | Raw speed, GPU support, offline processing | Any (Library) | No |
+
+---
+
+## Implementation Details in This Project
+
+While the above provides a generalized comparison, our specific RAG implementation utilizes vector databases in the following ways:
+
+- **Deduplication:** To prevent duplicate chunks from flooding the system upon re-ingestion, all Vector Stores integrate with `src/rag/scratch.py` which intercepts the `add_document` call and manually deletes existing documents matching the incoming `file_name` metadata.
+- **Qdrant (Primary):** Provides full Native Hybrid Search. Using Qdrant v1.19.0+, we utilize `models.Prefetch` to fetch dense and sparse approximations simultaneously, and fuse them with Qdrant's internal `models.Fusion.RRF` feature for optimized context retrieval.
+- **Local JSON Store (Fallback):** In the absence of a running database, the local JSON store manually computes dense cosine similarity and sparse dot-product similarity, applying Reciprocal Rank Fusion (RRF) in-memory before returning results to the retriever.
+- **ChromaDB:** As Chroma does not natively support sparse keyword retrieval out of the box in its base python package, our `ChromaDBStore` safely falls back to standard Dense similarity retrieval even when Hybrid Search is enabled in the `.env`.

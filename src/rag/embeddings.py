@@ -119,3 +119,38 @@ class ModelSelector:
         except Exception as e:
             logger.error(f"Error generating single embedding: {e}")
             raise
+
+    @staticmethod
+    def get_sparse_embedded(chunks: list[str]):
+        if not getattr(settings, "USE_HYBRID_EMBEDDING", True):
+            return None
+            
+        try:
+            from fastembed import SparseTextEmbedding
+            model_name = getattr(settings, "SPLADE_MODEL", "prithvida/Splade_PP_en_v1")
+            if getattr(settings, "SPARSE_EMBEDDING_MODEL", "splade").lower() == "bm25":
+                model_name = getattr(settings, "BM25_MODEL", "Qdrant/bm25")
+            sparse_model = SparseTextEmbedding(model_name=model_name)
+            logger.info(f"Generating sparse embeddings using {model_name}")
+            return list(sparse_model.embed(chunks))
+        except Exception as e:
+            logger.warning(f"Failed to generate sparse embeddings: {e}")
+            return None
+            
+    @staticmethod
+    def get_single_sparse_embedding(query: str):
+        if not getattr(settings, "USE_HYBRID_SEARCH", False):
+            return None
+            
+        try:
+            from fastembed import SparseTextEmbedding
+            model_name = getattr(settings, "SPLADE_MODEL", "prithvida/Splade_PP_en_v1")
+            if getattr(settings, "SPARSE_EMBEDDING_MODEL", "splade").lower() == "bm25":
+                model_name = getattr(settings, "BM25_MODEL", "Qdrant/bm25")
+            sparse_model = SparseTextEmbedding(model_name=model_name)
+            logger.info(f"Generating sparse embedding for query using {model_name}")
+            embeddings = list(sparse_model.embed([query]))
+            return embeddings[0] if embeddings else None
+        except Exception as e:
+            logger.warning(f"Failed to generate single sparse embedding: {e}")
+            return None
