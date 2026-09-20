@@ -79,3 +79,16 @@ Passage:"""
     except Exception as e:
         logger.error(f"Error building HyDE prompt: {str(e)}")
         raise
+
+def build_query_rewriting_prompt(query: str) -> str:
+    try:
+        logger.info(f"Building query rewriting prompt for query: {query}")
+        return f"""You are an AI assistant tasked with reformulating user queries to improve retrieval in a search system.
+Rewrite the following user query to be more specific, clear, and optimized for vector search.
+Return ONLY the rewritten query text. Do not include any intro, outro, or quotes.
+
+Original query: {query}
+Rewritten query:"""
+    except Exception as e:
+        logger.error(f"Error building query rewriting prompt: {str(e)}")
+        raise

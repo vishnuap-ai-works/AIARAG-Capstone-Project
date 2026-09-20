@@ -10,7 +10,7 @@ from config.logging_config import setup_logger
 from config.settings import settings
 from rag.embeddings import ModelSelector
 from rag.generator import LLMGenerator
-from rag.prompts.prompts import build_multi_query_prompt, build_query_decomposition_prompt, build_hyde_prompt
+from rag.prompts.prompts import build_multi_query_prompt, build_query_decomposition_prompt, build_hyde_prompt, build_query_rewriting_prompt
 from rag.vector_store import BaseVectorStore
 
 logger = setup_logger(__name__)
@@ -35,7 +35,7 @@ class DenseRetriever(BaseRetriever):
 
             queries_to_embed = [query]
             
-            if getattr(settings, "USE_MULTI_QUERY", False) or getattr(settings, "USE_QUERY_DECOMPOSITION", False) or getattr(settings, "USE_HYDE", False):
+            if getattr(settings, "USE_MULTI_QUERY", False) or getattr(settings, "USE_QUERY_DECOMPOSITION", False) or getattr(settings, "USE_HYDE", False) or getattr(settings, "USE_QUERY_REWRITING", False):
                 llm = LLMGenerator()
                 augmented_queries = []
                 
@@ -55,7 +55,13 @@ class DenseRetriever(BaseRetriever):
                     logger.info("Generating hypothetical document for HyDE")
                     prompt = build_hyde_prompt(query)
                     res = await llm.generate_text(prompt)
-                    print("###########")
+                    if res and res.strip():
+                        augmented_queries.append(res.strip())
+
+                if getattr(settings, "USE_QUERY_REWRITING", False):
+                    logger.info("Generating rewritten query")
+                    prompt = build_query_rewriting_prompt(query)
+                    res = await llm.generate_text(prompt)
                     print(res)
                     if res and res.strip():
                         augmented_queries.append(res.strip())
