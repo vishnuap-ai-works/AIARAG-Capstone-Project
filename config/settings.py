@@ -74,6 +74,7 @@ class Settings(BaseSettings):
 
     USE_MULTI_QUERY: bool = False
     USE_QUERY_DECOMPOSITION: bool = False
+    USE_HYDE: bool = False
 
 
 settings = Settings()
