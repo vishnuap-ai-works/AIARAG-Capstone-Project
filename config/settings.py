@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     USE_QUERY_DECOMPOSITION: bool = False
     USE_HYDE: bool = False
     USE_QUERY_REWRITING: bool = False
+    USE_PII_REDACTION: bool = False
+    PII_NLP_ENGINE_NAME: str = "spacy" # Options: spacy, stanza, transformers
+    PII_NLP_MODEL_NAME: str = "en_core_web_sm" # e.g. en_core_web_sm, dslim/bert-base-NER
 
 
 settings = Settings()

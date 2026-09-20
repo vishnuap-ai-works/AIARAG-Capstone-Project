@@ -23,6 +23,8 @@ The ingestion script relies on environment variables to know where your data is 
    * **`EMBEDDING_MODEL_SOURCE`**: Set this to `openai`, `ollama`, or `docker` depending on what you want to use.
    * **`OPENAI_API_KEY`**: If using OpenAI, paste your secret API key here.
    * **`USE_HYBRID_SEARCH` / `USE_HYBRID_EMBEDDING`**: Set to `true` to enable sparse vectors (keyword search via `fastembed` SPLADE) and Reciprocal Rank Fusion (RRF) in your vector store.
+   * **`USE_HYDE` / `USE_QUERY_REWRITING`**: Set to `true` to enable LLM-powered query augmentations during retrieval.
+   * **`USE_PII_REDACTION`**: Set to `true` to enable Microsoft Presidio to automatically scrub sensitive PII data during ingestion and querying. You can configure the specific NLP engine used via `PII_NLP_ENGINE_NAME`.
 
 ---
 

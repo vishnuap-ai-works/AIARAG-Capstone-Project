@@ -32,6 +32,11 @@ class DocumentIngestionPipeline:
         # Configure Vector Store from settings via Factory
         self.vector_store = vector_store or VectorStoreFactory.get_vector_store()
 
+        self.redactor = None
+        if getattr(settings, "USE_PII_REDACTION", False):
+            from rag.pii_redactor import PIIRedactor
+            self.redactor = PIIRedactor()
+
     async def ingest_file(self, path) -> list[str]:
         try:
             path_obj = Path(path)
@@ -42,6 +47,10 @@ class DocumentIngestionPipeline:
             loader = DocumentLoadFactory.get_loader(path_obj)
             text_content = await loader.load()
             logger.info(f"Successfully loaded document: {file_name}")
+
+            if self.redactor:
+                logger.info(f"Redacting PII from document: {file_name}")
+                text_content = self.redactor.redact_text(text_content)
 
             logger.info(f"2. Document Chunking.....{file_name}")
             chunks = await self.chunker.chunk(text_content)

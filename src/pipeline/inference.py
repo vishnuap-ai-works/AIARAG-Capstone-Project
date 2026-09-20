@@ -26,9 +26,19 @@ class InferencePipeline:
         self.retriever = DenseRetriever(self.vector_store, reranker=reranker)
         self.generator = LLMGenerator()
 
+        self.redactor = None
+        if getattr(settings, "USE_PII_REDACTION", False):
+            from rag.pii_redactor import PIIRedactor
+            self.redactor = PIIRedactor()
+
     async def run(self, query: str):
         logger.info(f"Running inference for query: '{query}'")
         try:
+            if self.redactor:
+                logger.info("Redacting PII from query")
+                query = self.redactor.redact_text(query)
+                logger.info(f"Redacted query: '{query}'")
+
             # 1. Retrieve Context
             logger.info("Step 1: Retrieving context")
             context = await self.retriever.retrieve(query, top_k=self.top_k)
@@ -39,6 +49,10 @@ class InferencePipeline:
             # 2. Generate Answer
             logger.info("Step 2: Generating answer")
             answer = await self.generator.generate_answer(query, context)
+
+            if self.redactor:
+                logger.info("Redacting PII from generated answer")
+                answer = self.redactor.redact_text(answer)
 
             logger.info("Inference complete.")
             return answer

@@ -60,17 +60,18 @@ This is the heart of the system where raw documents are transformed into AI-read
 - **`chunking.py`**: Breaks down large, continuous documents into smaller, semantically meaningful text pieces. Implements **Sliding Window Chunking** which uses string slicing to split text by fixed lengths while maintaining a slight overlap to preserve context across boundaries.
 - **`embeddings.py`**: An abstraction layer for converting text chunks into dense vector representations. Wraps both cloud APIs (`OpenAIEmbeddings`) and local, private models (`OllamaEmbeddings`). Uses a `ModelSelector` to efficiently batch process text.
 - **`vector_store.py`**: The interface for interacting with vector databases (like ChromaDB or Pinecone). It handles inserting document chunks and embeddings, and executing similarity searches.
-- **`retriever.py`**: Takes a user's query, embeds it, and fetches the most relevant chunks from the `vector_store.py`. Built to support dense vector search, sparse keyword search (BM25), and hybrid approaches.
+- **`retriever.py`**: Takes a user's query, embeds it, and fetches the most relevant chunks from the `vector_store.py`. Built to support dense vector search, sparse keyword search (BM25), and hybrid approaches. It also handles **Query Augmentation** (like HyDE and Query Rewriting) to enhance retrieval accuracy.
 - **`reranker.py`**: A secondary retrieval stage to improve accuracy. Implements a `RerankerFactory` that dynamically selects between local rerankers (`CrossEncoderReranker` via `sentence-transformers`) and cloud APIs (`CohereReranker`).
+- **`pii_redactor.py`**: Integrates Microsoft Presidio for robust PII (Personally Identifiable Information) detection and redaction using hybrid NLP and regex logic, ensuring sensitive data is scrubbed before vectorization and inference.
 - **`generator.py`**: Bridges the gap between retrieved documents and the final user answer. It injects the context from `retriever.py` into prompt templates and makes the final LLM API call to generate the answer.
 - **`scratch.py`**: A utility script used for manually testing and verifying database operations (such as deduplication and deletion logic) against active Vector Stores like ChromaDB and Qdrant.
-- **`prompts/`**: A directory intended to hold `.txt` files containing the raw system and user prompt instructions for the LLM.
+- **`prompts/`**: A directory intended to hold `.txt` and `.py` files containing the raw system and user prompt instructions for the LLM, including standard QA, HyDE, and Query Rewriting templates.
 
 ## ⚙️ 2. Data Persistence & Orchestration (`src/pipeline/`)
 This module acts as the "Conductor" tying the independent RAG modules together into sequential workflows.
 
-- **`store.py`**: Contains the `DocumentIngestionPipeline`. This is the orchestrator for ingesting data. By using Dependency Injection, it accepts a chunker and embedder, then runs a strict pipeline: **Load -> Chunk -> Embed -> Store**. It includes recursive directory walking, robust `try/except` error handling, and comprehensive logging.
-- **`inference.py`**: The orchestrator for the "Query" side of the pipeline (taking a user question and returning an answer). It successfully ties together the `retriever`, `reranker`, and `generator` to output a final synthesized response.
+- **`store.py`**: Contains the `DocumentIngestionPipeline`. This is the orchestrator for ingesting data. By using Dependency Injection, it accepts a chunker and embedder, then runs a strict pipeline: **Load -> Redact PII -> Chunk -> Embed -> Store**. It includes recursive directory walking, robust `try/except` error handling, and comprehensive logging.
+- **`inference.py`**: The orchestrator for the "Query" side of the pipeline (taking a user question and returning an answer). It successfully ties together the `retriever`, `reranker`, and `generator` to output a final synthesized response. It also coordinates PII redaction on both the input query and the final generated output.
 
 ## 🧪 3. Evaluation System (`src/eval/`)
 RAG systems must be quantitatively tested. This directory holds scripts to grade the AI's answers.
