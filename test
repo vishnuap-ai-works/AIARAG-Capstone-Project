@@ -1,0 +1,17 @@
+from ragas.metrics import (
+    faithfulness,
+    answer_relevancy,
+    context_precision,
+    context_recall
+)
+
+# Inspect faithfulness prompts
+print(faithfulness.statement_prompt.get_prompts())
+print(faithfulness.nli_evaluation_prompt.get_prompts())
+
+# Inspect answer relevancy prompt
+print(answer_relevancy.question_generation.get_prompts())
+
+# Inspect context precision & recall prompts
+print(context_precision.context_precision_prompt.get_prompts())
+print(context_recall.context_recall_prompt.get_prompts())

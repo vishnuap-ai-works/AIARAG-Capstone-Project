@@ -130,6 +130,49 @@ def generate_report(
                     f"| {lvl} | {c} | {ts_pct:.2%} | {gr_pct:.2%} | {rh_pct:.2%} |\n"
                 )
 
+        # Add Ragas Evaluation Metrics if available
+        if results and "ragas_faithfulness" in results[0]:
+            f.write("\n## Ragas Evaluation Metrics\n\n")
+            f.write("| Ragas Metric | Value |\n")
+            f.write("|---|---|\n")
+            f.write(f"| Faithfulness | {metrics.get('Ragas Faithfulness', 'N/A')} |\n")
+            f.write(f"| Answer Relevancy | {metrics.get('Ragas Answer Relevancy', 'N/A')} |\n")
+            f.write(f"| Context Precision | {metrics.get('Ragas Context Precision', 'N/A')} |\n")
+            f.write(f"| Context Recall | {metrics.get('Ragas Context Recall', 'N/A')} |\n")
+
+            f.write("\n### Ragas Metrics by Path Level\n\n")
+            f.write(
+                "| Path Level | Count | Faithfulness | Answer Relevancy | Context Precision | Context Recall |\n"
+            )
+            f.write("|---|---|---|---|---|---|\n")
+
+            ragas_levels = {}
+            for r in results:
+                lvl = r.get("level", "unknown")
+                if lvl not in ragas_levels:
+                    ragas_levels[lvl] = {
+                        "count": 0,
+                        "f": 0.0,
+                        "ar": 0.0,
+                        "cp": 0.0,
+                        "cr": 0.0,
+                    }
+                ragas_levels[lvl]["count"] += 1
+                ragas_levels[lvl]["f"] += r.get("ragas_faithfulness", 0.0)
+                ragas_levels[lvl]["ar"] += r.get("ragas_answer_relevancy", 0.0)
+                ragas_levels[lvl]["cp"] += r.get("ragas_context_precision", 0.0)
+                ragas_levels[lvl]["cr"] += r.get("ragas_context_recall", 0.0)
+
+            for lvl, data in ragas_levels.items():
+                c = data["count"]
+                f_pct = (data["f"] / c) if c > 0 else 0
+                ar_pct = (data["ar"] / c) if c > 0 else 0
+                cp_pct = (data["cp"] / c) if c > 0 else 0
+                cr_pct = (data["cr"] / c) if c > 0 else 0
+                f.write(
+                    f"| {lvl} | {c} | {f_pct:.2%} | {ar_pct:.2%} | {cp_pct:.2%} | {cr_pct:.2%} |\n"
+                )
+
         f.write("\n## Threshold Definitions\n")
         f.write("```json\n")
         f.write(json.dumps(thresholds, indent=2))
@@ -203,12 +246,24 @@ async def main():
         print(f"Warning: Could not load thresholds: {e}")
         thresholds = {}
 
+    from config.settings import settings
+
     # Initialize components
     pipeline = InferencePipeline()
     judge = LLMJudge()
+    ragas_judge = None
+    if getattr(settings, "ENABLE_RAGAS_EVAL", False):
+        try:
+            from eval.ragas_eval import RagasJudge
+
+            ragas_judge = RagasJudge()
+            print(f"Ragas evaluation enabled (Judge source: {ragas_judge.source})\n")
+        except Exception as e:
+            print(f"Warning: Could not initialize RagasJudge: {e}\n")
+            ragas_judge = None
 
     # Run evaluation
-    results = await run_evaluation(golden_dataset, pipeline, judge)
+    results = await run_evaluation(golden_dataset, pipeline, judge, ragas_judge=ragas_judge)
 
     # Save all results into a single json file in data/evals
     evals_dir = os.path.join(root_dir, "data", "evals")

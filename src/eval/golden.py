@@ -34,10 +34,17 @@ def load_golden_set(filepath: str) -> List[Dict]:
 
 
 async def run_evaluation(
-    golden_dataset: List[Dict], pipeline: InferencePipeline, judge: LLMJudge
+    golden_dataset: List[Dict],
+    pipeline: InferencePipeline,
+    judge: Any = None,
+    ragas_judge: Any = None,
 ):
-    results = []
+    if judge is None:
+        judge = LLMJudge()
 
+    from config.settings import settings
+
+    results = []
     print(f"Starting evaluation on {len(golden_dataset)} items...")
 
     for item in golden_dataset:
@@ -72,10 +79,7 @@ async def run_evaluation(
         total_latency = t2 - t0
 
         encoder = tiktoken.get_encoding("cl100k_base")
-        # Approximate tokens for embedding (query only since context is pre-embedded)
         embedding_tokens = len(encoder.encode(query))
-
-        from config.settings import settings
 
         embedding_cost = embedding_tokens * (
             settings.EMBEDDING_COST_PER_1M_TOKENS / 1_000_000.0
@@ -88,7 +92,7 @@ async def run_evaluation(
             * (settings.LLM_OUTPUT_COST_PER_1M_TOKENS / 1_000_000.0)
         )
         cost_per_query = embedding_cost + llm_cost
-        # Calculate token metrics
+
         context_str = "\n\n".join(
             [
                 doc.get("chunk", str(doc)) if isinstance(doc, dict) else str(doc)
@@ -104,7 +108,7 @@ async def run_evaluation(
             0, prompt_tokens - tokens_on_retrieved_chunks - embedding_tokens
         )
 
-        # Evaluate with LLMJudge
+        # Evaluate with primary LLMJudge
         scores = await judge.evaluate_all(query, context, answer, expected_answer)
         task_success = scores["task_success"]
         groundedness = scores["groundedness"]
@@ -128,8 +132,33 @@ async def run_evaluation(
                 "tokens_on_retrieved_chunks": tokens_on_retrieved_chunks,
                 "embedding_token_consumption": embedding_tokens,
                 "tokens_on_completion": completion_tokens,
+                "_context": context,
             }
         )
+
+    # Run additional Ragas evaluation if enabled
+    if ragas_judge is not None and results:
+        print(f"\nRunning additional Ragas evaluation on {len(results)} items...")
+        ragas_items = [
+            {
+                "query": r["question"],
+                "context": r.get("_context", []),
+                "generated_answer": r["generated_answer"],
+                "expected_answer": r["ideal_answer"],
+            }
+            for r in results
+        ]
+        try:
+            ragas_scores = await ragas_judge.evaluate_batch(ragas_items)
+            for i, r in enumerate(results):
+                if i < len(ragas_scores):
+                    r.update(ragas_scores[i])
+        except Exception as e:
+            logger.error(f"Error during additional Ragas evaluation: {e}")
+
+    # Remove internal temporary context key before saving
+    for r in results:
+        r.pop("_context", None)
 
     return results
 
@@ -160,7 +189,7 @@ def aggregate_metrics(results: List[Dict]) -> Dict[str, Any]:
 
     avg = lambda key: sum(r[key] for r in results) / len(results)
 
-    return {
+    aggregated = {
         "Total Count": len(results),
         "Task Success Rate": f"{avg('task_success'):.2%}",
         "Groundedness": f"{avg('groundedness'):.2%}",
@@ -169,3 +198,12 @@ def aggregate_metrics(results: List[Dict]) -> Dict[str, Any]:
         "Latency (p50)": f"{p50:.2f}s",
         "Latency (p95)": f"{p95:.2f}s",
     }
+
+    if results and "ragas_faithfulness" in results[0]:
+        aggregated["Ragas Faithfulness"] = f"{avg('ragas_faithfulness'):.2%}"
+        aggregated["Ragas Answer Relevancy"] = f"{avg('ragas_answer_relevancy'):.2%}"
+        aggregated["Ragas Context Precision"] = f"{avg('ragas_context_precision'):.2%}"
+        aggregated["Ragas Context Recall"] = f"{avg('ragas_context_recall'):.2%}"
+
+    return aggregated
+

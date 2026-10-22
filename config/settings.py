@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     OPENAI_JUDGE_MODEL: str = "gpt-4o-mini"
     HUGGINGFACE_JUDGE_MODEL: str = "meta-llama/Meta-Llama-3-8B-Instruct"
     OLLAMA_JUDGE_MODEL: str = "llama3"
+    ENABLE_RAGAS_EVAL: bool = True
+    EVALUATION_METHOD: str = "llm_judge"
 
     EMBEDDING_COST_PER_1M_TOKENS: float = 0.1
     LLM_INPUT_COST_PER_1M_TOKENS: float = 0.15

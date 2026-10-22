@@ -70,6 +70,14 @@ The pipeline calculates a mix of qualitative (LLM-judged) and quantitative (syst
 - **Cost / Query**: The estimated dollar cost of running a single query, calculated by counting tokens sent to the Embedding Model and LLM Generator, multiplied by the token rates defined in your `.env` file.
 - **Latency (p50 & p95)**: The total round-trip time. `p50` represents the median user experience, while `p95` represents the "worst-case" scenario, ensuring 95% of queries complete within that time limit.
 
+### 5. Additional Ragas Evaluation Metrics (Enabled via `ENABLE_RAGAS_EVAL=true`)
+When `ENABLE_RAGAS_EVAL=true` is set in `.env`, the evaluation pipeline additionally runs the standardized **Ragas** framework using the designated `JUDGE_SOURCE`:
+- **Faithfulness**: Measures whether the generated answer is grounded in the retrieved context.
+- **Answer Relevancy**: Assesses how pertinent the generated response is to the user's input query.
+- **Context Precision**: Evaluates the signal-to-noise ratio of the retrieved contexts against ground truth.
+- **Context Recall**: Measures whether all necessary facts from the reference answer are present in the retrieved context.
+These scores are exported to `data/evals/all_results.json` and rendered in a dedicated section in `docs/evals/report.md`.
+
 ---
 
 ## Troubleshooting & Tuning Configurations
@@ -112,6 +120,7 @@ The evaluation pipeline is modular and relies on the following configuration and
 - **`scripts/run_rag_eval.py`**: The main orchestrator script. It wires together the dataset, the inference pipeline, the judge, and the report generator.
 - **`src/eval/golden.py`**: Contains the core evaluation loop. It measures total and generation latency, calculates token costs, invokes the RAG pipeline, and asks the judge for scores. It also aggregates the final results and percentiles (p50, p95).
 - **`src/eval/judge.py`**: The LLM Judge logic. It queries the configured judge model (OpenAI, HuggingFace, or Ollama) using the evaluation rubrics, extracting the JSON `score` field.
+- **`src/eval/ragas_eval.py`**: The Ragas Judge logic. Runs Faithfulness, Answer Relevancy, Context Precision, and Context Recall using the configured `JUDGE_SOURCE` models.
 - **`src/rag/prompts/prompts.py`**: Centralized storage for the evaluation prompts used by the judge to enforce strict grading rules.
 - **`config/settings.py`**: Stores environment configurations (`JUDGE_SOURCE`, `OPENAI_JUDGE_MODEL`, cost per token settings) loaded from the `.env` file.
 - **`data/golden_set.jsonl`**: The dataset of test questions and expected ideal answers used as the ground truth.
