@@ -4,6 +4,7 @@ This module is responsible for taking a user query, embedding it, and fetching t
 relevant document chunks from the vector store.
 """
 
+import json
 from abc import ABC, abstractmethod
 
 from config.logging_config import setup_logger
@@ -121,14 +122,130 @@ class DenseRetriever(BaseRetriever):
                 f"Initial retrieval fetched {len(all_results)} unique results across all queries"
             )
 
+            # Tag initial retrieval rank on all fetched candidate chunks
+            for idx, r in enumerate(all_results, start=1):
+                if isinstance(r, dict):
+                    r["retrieval_rank"] = idx
+
             # Apply reranker if configured
             if self.reranker and all_results:
+                initial_chunks_payload = [
+                    {
+                        "rank": idx,
+                        "similarity_score": (
+                            round(r.get("score"), 4)
+                            if isinstance(r.get("score"), (int, float))
+                            else None
+                        ),
+                        "metadata": r.get("metadata", {}),
+                    }
+                    for idx, r in enumerate(all_results, start=1)
+                ]
+
+                initial_score_entries = [
+                    (
+                        f"chunk {c['rank']}. - {c['similarity_score']:.2f}"
+                        if isinstance(c["similarity_score"], (int, float))
+                        else f"chunk {c['rank']}. - N/A"
+                    )
+                    for c in initial_chunks_payload
+                ]
+                logger.info(
+                    f"Initial retrieved chunk similarity scores: {', '.join(initial_score_entries)}"
+                )
+
                 logger.info(f"Applying reranker to refine top {top_k} results")
                 all_results = self.reranker.rerank(query, all_results, top_k=top_k)
                 logger.info(f"Reranking complete. Final results: {len(all_results)}")
-            elif all_results and len(all_results) > top_k:
-                # If no reranker, just take the first top_k
-                all_results = all_results[:top_k]
+
+                reranked_chunks_payload = [
+                    {
+                        "rank": idx,
+                        "initial_rank": r.get("retrieval_rank"),
+                        "rerank_score": (
+                            round(r.get("rerank_score"), 4)
+                            if isinstance(r.get("rerank_score"), (int, float))
+                            else None
+                        ),
+                        "initial_score": (
+                            round(r.get("score"), 4)
+                            if isinstance(r.get("score"), (int, float))
+                            else None
+                        ),
+                        "metadata": r.get("metadata", {}),
+                    }
+                    for idx, r in enumerate(all_results, start=1)
+                ]
+
+                rerank_score_entries = [
+                    (
+                        f"chunk {c['rank']}. - {c['rerank_score']:.2f}"
+                        if isinstance(c["rerank_score"], (int, float))
+                        else f"chunk {c['rank']}. - N/A"
+                    )
+                    for c in reranked_chunks_payload
+                ]
+                logger.info(
+                    f"Top {len(all_results)} reranked chunk scores: {', '.join(rerank_score_entries)}"
+                )
+
+                # Log ranks and scores of retriever and reranker as JSON
+                logger.info(
+                    "Retriever and Reranked Chunks (JSON):\n"
+                    + json.dumps(
+                        {
+                            "query": query,
+                            "retrieved_chunks": initial_chunks_payload,
+                            "reranked_chunks": reranked_chunks_payload,
+                        },
+                        indent=2,
+                        default=str,
+                    )
+                )
+            elif all_results:
+                if len(all_results) > top_k:
+                    # If no reranker, just take the first top_k
+                    all_results = all_results[:top_k]
+
+                retrieved_chunks_payload = [
+                    {
+                        "rank": idx,
+                        "similarity_score": (
+                            round(r.get("score"), 4)
+                            if isinstance(r.get("score"), (int, float))
+                            else None
+                        ),
+                        "metadata": r.get("metadata", {}),
+                    }
+                    for idx, r in enumerate(all_results, start=1)
+                ]
+
+                score_entries = [
+                    (
+                        f"chunk {c['rank']}. - {c['similarity_score']:.2f}"
+                        if isinstance(c["similarity_score"], (int, float))
+                        else f"chunk {c['rank']}. - N/A"
+                    )
+                    for c in retrieved_chunks_payload
+                ]
+                logger.info(
+                    f"Top {len(all_results)} retrieved chunk similarity scores: {', '.join(score_entries)}"
+                )
+
+                # Log ranks and scores of retriever as JSON
+                logger.info(
+                    "Retrieved Chunks (JSON):\n"
+                    + json.dumps(
+                        {
+                            "query": query,
+                            "retrieved_chunks": retrieved_chunks_payload,
+                        },
+                        indent=2,
+                        default=str,
+                    )
+                )
+            else:
+                logger.info("No chunks retrieved.")
 
             return all_results
         except Exception as e:

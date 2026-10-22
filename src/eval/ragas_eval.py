@@ -29,8 +29,8 @@ class RagasJudge:
         self._init_metrics()
 
     def _init_llm_and_embeddings(self):
-        from ragas.llms import LangchainLLMWrapper
         from ragas.embeddings import LangchainEmbeddingsWrapper
+        from ragas.llms import LangchainLLMWrapper
 
         raw_llm = None
         raw_embeddings = None
@@ -38,7 +38,9 @@ class RagasJudge:
         if self.source == "openai":
             from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-            model = self.model_name or getattr(settings, "OPENAI_JUDGE_MODEL", "gpt-4o-mini")
+            model = self.model_name or getattr(
+                settings, "OPENAI_JUDGE_MODEL", "gpt-4o-mini"
+            )
             base_url = getattr(settings, "OPENAI_API_BASE_URL", None) or None
             api_key = getattr(settings, "OPENAI_API_KEY", None) or None
             temperature = getattr(settings, "OPENAI_TEMPERATURE", 0.0)
@@ -50,7 +52,10 @@ class RagasJudge:
                 temperature=temperature,
             )
 
-            emb_model = getattr(settings, "OPENAI_API_EMBEDDING_MODEL", None) or "text-embedding-3-small"
+            emb_model = (
+                getattr(settings, "OPENAI_API_EMBEDDING_MODEL", None)
+                or "text-embedding-3-small"
+            )
             try:
                 if api_key:
                     raw_embeddings = OpenAIEmbeddings(
@@ -65,8 +70,12 @@ class RagasJudge:
         elif self.source == "ollama":
             from langchain_ollama import ChatOllama
 
-            model = self.model_name or getattr(settings, "OLLAMA_JUDGE_MODEL", "qwen2.5:7b")
-            base_url = getattr(settings, "OLLAMA_BASE_URL", None) or "http://localhost:11434"
+            model = self.model_name or getattr(
+                settings, "OLLAMA_JUDGE_MODEL", "qwen2.5:7b"
+            )
+            base_url = (
+                getattr(settings, "OLLAMA_BASE_URL", None) or "http://localhost:11434"
+            )
             temperature = getattr(settings, "OLLAMA_TEMPERATURE", 0.0)
 
             raw_llm = ChatOllama(
@@ -87,7 +96,9 @@ class RagasJudge:
                         base_url=base_url,
                     )
                 except Exception as e:
-                    logger.warning(f"Could not initialize OllamaEmbeddings ({ollama_emb_model}): {e}")
+                    logger.warning(
+                        f"Could not initialize OllamaEmbeddings ({ollama_emb_model}): {e}"
+                    )
                     raw_embeddings = None
 
         elif self.source == "huggingface":
@@ -119,7 +130,9 @@ class RagasJudge:
                     model_name="sentence-transformers/all-MiniLM-L6-v2"
                 )
             except Exception as e:
-                logger.error(f"Failed to initialize HuggingFaceEmbeddings fallback: {e}")
+                logger.error(
+                    f"Failed to initialize HuggingFaceEmbeddings fallback: {e}"
+                )
                 raise RuntimeError(f"Unable to initialize embeddings for Ragas: {e}")
 
         # For local Ollama models, worker concurrency must be limited to prevent
@@ -164,7 +177,9 @@ class RagasJudge:
         except (ValueError, TypeError):
             return 0.0
 
-    async def evaluate_batch(self, items: List[Dict[str, Any]]) -> List[Dict[str, float]]:
+    async def evaluate_batch(
+        self, items: List[Dict[str, Any]]
+    ) -> List[Dict[str, float]]:
         """
         Evaluate a list of test questions with Ragas concurrently.
         Each item contains: 'query' (or 'question'), 'context',

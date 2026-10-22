@@ -146,6 +146,7 @@ class JSONVectorStore(BaseVectorStore):
                             "file_name": filename,
                             "file_type": file_data.get("file_type"),
                         },
+                        "score": dense_similarity,
                     }
                     dense_results.append((dense_similarity, item))
 
@@ -195,7 +196,12 @@ class JSONVectorStore(BaseVectorStore):
         # Sort by combined RRF score
         fused = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
 
-        return [chunk_to_item[chunk_text] for chunk_text, score in fused[:top_k]]
+        results = []
+        for chunk_text, score in fused[:top_k]:
+            item = dict(chunk_to_item[chunk_text])
+            item["score"] = score
+            results.append(item)
+        return results
 
 
 class ChromaDBStore(BaseVectorStore):
@@ -266,7 +272,8 @@ class ChromaDBStore(BaseVectorStore):
             for i in range(len(result["documents"][0])):
                 doc = result["documents"][0][i]
                 metadata = result["metadatas"][0][i]
-                score = result["distances"][0][i]
+                dist = result["distances"][0][i]
+                score = 1.0 - dist if 0 <= dist <= 2 else dist
 
                 results.append({"chunk": doc, "metadata": metadata, "score": score})
             return results

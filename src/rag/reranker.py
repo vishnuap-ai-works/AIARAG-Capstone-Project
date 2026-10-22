@@ -1,3 +1,4 @@
+import math
 from abc import ABC, abstractmethod
 
 from config.logging_config import setup_logger
@@ -52,12 +53,34 @@ class CrossEncoderReranker(BaseReranker):
 
         # Update documents with their new scores
         for idx, doc in enumerate(documents):
-            doc["rerank_score"] = float(scores[idx])
+            raw_score = float(scores[idx])
+            # Normalize to [0, 1] via sigmoid if raw score is outside [0, 1]
+            if 0.0 <= raw_score <= 1.0:
+                norm_score = raw_score
+            else:
+                try:
+                    norm_score = 1.0 / (1.0 + math.exp(-raw_score))
+                except OverflowError:
+                    norm_score = 1.0 if raw_score > 0 else 0.0
 
-        # Sort documents by the new scores in descending order
-        reranked_docs = sorted(documents, key=lambda x: x["rerank_score"], reverse=True)
+            doc["raw_rerank_score"] = raw_score
+            doc["rerank_score"] = round(norm_score, 4)
 
-        return reranked_docs[:top_k]
+        # Sort documents by score in descending order
+        reranked_docs = sorted(
+            documents, key=lambda x: x["raw_rerank_score"], reverse=True
+        )
+        top_docs = reranked_docs[:top_k]
+
+        score_entries = [
+            f"chunk {i}. - {doc['rerank_score']:.2f}"
+            for i, doc in enumerate(top_docs, start=1)
+        ]
+        logger.info(
+            f"Top {len(top_docs)} reranked chunk scores: {', '.join(score_entries)}"
+        )
+
+        return top_docs
 
 
 class CohereReranker(BaseReranker):
@@ -101,8 +124,16 @@ class CohereReranker(BaseReranker):
         for result in results.results:
             idx = result.index
             doc = documents[idx]
-            doc["rerank_score"] = result.relevance_score
+            doc["rerank_score"] = round(float(result.relevance_score), 4)
             reranked_docs.append(doc)
+
+        score_entries = [
+            f"chunk {i}. - {doc['rerank_score']:.2f}"
+            for i, doc in enumerate(reranked_docs, start=1)
+        ]
+        logger.info(
+            f"Top {len(reranked_docs)} reranked chunk scores: {', '.join(score_entries)}"
+        )
 
         return reranked_docs
 

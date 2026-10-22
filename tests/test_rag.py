@@ -1,1 +1,108 @@
-"""Unit Tests for RAG Components (Chunking, Embedding, Retrieval). Verifies algorithm correctness."""
+"""Unit Tests for RAG Components (Chunking, Embedding, Retrieval, Reranking). Verifies algorithm correctness."""
+
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from rag.reranker import CrossEncoderReranker
+from rag.retriever import DenseRetriever
+
+
+@pytest.mark.anyio
+async def test_dense_retriever_logs_similarity_scores(caplog):
+    """Verify that retrieve() logs top-k chunk similarity scores in expected format."""
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = [
+        {"chunk": "Chunk 1 text", "metadata": {"file_name": "doc1.txt"}, "score": 0.92},
+        {"chunk": "Chunk 2 text", "metadata": {"file_name": "doc2.txt"}, "score": 0.93},
+        {"chunk": "Chunk 3 text", "metadata": {"file_name": "doc3.txt"}, "score": 0.97},
+    ]
+
+    retriever = DenseRetriever(vector_store=mock_vector_store)
+
+    with patch(
+        "rag.embeddings.ModelSelector.get_single_embedding",
+        new_callable=AsyncMock,
+    ) as mock_embed:
+        mock_embed.return_value = [0.1, 0.2, 0.3]
+
+        with caplog.at_level("INFO"):
+            results = await retriever.retrieve("What is the policy?", top_k=3)
+
+    assert len(results) == 3
+    expected_log_pattern = "chunk 1. - 0.92, chunk 2. - 0.93, chunk 3. - 0.97"
+    assert any(expected_log_pattern in record.message for record in caplog.records)
+    assert any(
+        "Retrieved Chunks (JSON):" in record.message for record in caplog.records
+    )
+
+
+@pytest.mark.anyio
+async def test_dense_retriever_logs_reranked_scores(caplog):
+    """Verify that retrieve() logs initial similarity scores and reranked scores."""
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = [
+        {"chunk": "Chunk 1", "score": 0.75},
+        {"chunk": "Chunk 2", "score": 0.82},
+    ]
+
+    mock_reranker = MagicMock()
+    mock_reranker.rerank.return_value = [
+        {"chunk": "Chunk 2", "score": 0.82, "rerank_score": 0.96, "retrieval_rank": 2},
+        {"chunk": "Chunk 1", "score": 0.75, "rerank_score": 0.88, "retrieval_rank": 1},
+    ]
+
+    retriever = DenseRetriever(vector_store=mock_vector_store, reranker=mock_reranker)
+
+    with patch(
+        "rag.embeddings.ModelSelector.get_single_embedding",
+        new_callable=AsyncMock,
+    ) as mock_embed:
+        mock_embed.return_value = [0.1, 0.2, 0.3]
+
+        with caplog.at_level("INFO"):
+            results = await retriever.retrieve("Test query", top_k=2)
+
+    assert len(results) == 2
+    # Verify initial similarity score log
+    assert any(
+        "Initial retrieved chunk similarity scores: chunk 1. - 0.75, chunk 2. - 0.82"
+        in record.message
+        for record in caplog.records
+    )
+    # Verify reranked score log
+    assert any(
+        "Top 2 reranked chunk scores: chunk 1. - 0.96, chunk 2. - 0.88"
+        in record.message
+        for record in caplog.records
+    )
+    # Verify JSON log with both retriever and reranked chunks
+    assert any(
+        "Retriever and Reranked Chunks (JSON):" in record.message
+        for record in caplog.records
+    )
+
+
+def test_cross_encoder_reranker_sigmoid_calculation(caplog):
+    """Verify that CrossEncoder calculates normalized rerank scores and logs them."""
+    with patch("sentence_transformers.CrossEncoder") as mock_ce_cls:
+        mock_ce = MagicMock()
+        # Raw logits from cross encoder: 2.4469 (sigmoid ~ 0.92), -1.0 (sigmoid ~ 0.27)
+        mock_ce.predict.return_value = [2.4469, -1.0]
+        mock_ce_cls.return_value = mock_ce
+
+        reranker = CrossEncoderReranker(model_name="mock-model")
+
+        docs = [{"chunk": "First chunk"}, {"chunk": "Second chunk"}]
+        with caplog.at_level("INFO"):
+            reranked = reranker.rerank("Query", docs, top_k=2)
+
+        assert len(reranked) == 2
+        assert reranked[0]["rerank_score"] == pytest.approx(0.9204, abs=0.01)
+        assert reranked[1]["rerank_score"] == pytest.approx(0.2689, abs=0.01)
+
+        assert any(
+            "Top 2 reranked chunk scores: chunk 1. - 0.92, chunk 2. - 0.27"
+            in record.message
+            for record in caplog.records
+        )

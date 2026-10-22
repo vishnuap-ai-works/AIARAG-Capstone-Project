@@ -6,6 +6,7 @@ metric calculation, score sanitization, and report aggregation.
 
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pandas as pd
 import pytest
 
@@ -17,8 +18,9 @@ from eval.ragas_eval import RagasJudge
 
 def test_llm_judge_initialization():
     """Verify LLMJudge initializes properly with settings."""
-    with patch.object(settings, "JUDGE_SOURCE", "ollama"), \
-         patch.object(settings, "OLLAMA_JUDGE_MODEL", "qwen2.5:7b"):
+    with patch.object(settings, "JUDGE_SOURCE", "ollama"), patch.object(
+        settings, "OLLAMA_JUDGE_MODEL", "qwen2.5:7b"
+    ):
         judge = LLMJudge()
         assert judge.source == "ollama"
         assert judge.model == "qwen2.5:7b"
@@ -26,9 +28,9 @@ def test_llm_judge_initialization():
 
 def test_ragas_judge_initialization_ollama():
     """Verify RagasJudge initializes correctly with Ollama source and OLLAMA_JUDGE_MODEL."""
-    with patch.object(settings, "JUDGE_SOURCE", "ollama"), \
-         patch.object(settings, "OLLAMA_JUDGE_MODEL", "qwen2.5:7b"), \
-         patch.object(settings, "OLLAMA_BASE_URL", "http://localhost:11434"):
+    with patch.object(settings, "JUDGE_SOURCE", "ollama"), patch.object(
+        settings, "OLLAMA_JUDGE_MODEL", "qwen2.5:7b"
+    ), patch.object(settings, "OLLAMA_BASE_URL", "http://localhost:11434"):
         judge = RagasJudge()
         assert judge.source == "ollama"
         assert judge.llm is not None
@@ -38,9 +40,9 @@ def test_ragas_judge_initialization_ollama():
 
 def test_ragas_judge_initialization_openai():
     """Verify RagasJudge initializes correctly with OpenAI source and OPENAI_JUDGE_MODEL."""
-    with patch.object(settings, "JUDGE_SOURCE", "openai"), \
-         patch.object(settings, "OPENAI_JUDGE_MODEL", "gpt-4o-mini"), \
-         patch.object(settings, "OPENAI_API_KEY", "test-key-12345"):
+    with patch.object(settings, "JUDGE_SOURCE", "openai"), patch.object(
+        settings, "OPENAI_JUDGE_MODEL", "gpt-4o-mini"
+    ), patch.object(settings, "OPENAI_API_KEY", "test-key-12345"):
         judge = RagasJudge()
         assert judge.source == "openai"
         assert judge.llm is not None
@@ -49,9 +51,9 @@ def test_ragas_judge_initialization_openai():
 
 def test_ragas_judge_initialization_huggingface():
     """Verify RagasJudge initializes correctly with HuggingFace source and HUGGINGFACE_JUDGE_MODEL."""
-    with patch.object(settings, "JUDGE_SOURCE", "huggingface"), \
-         patch.object(settings, "HUGGINGFACE_JUDGE_MODEL", "meta-llama/Meta-Llama-3-8B-Instruct"), \
-         patch.object(settings, "HUGGINGFACE_API_KEY", "hf_test_token"):
+    with patch.object(settings, "JUDGE_SOURCE", "huggingface"), patch.object(
+        settings, "HUGGINGFACE_JUDGE_MODEL", "meta-llama/Meta-Llama-3-8B-Instruct"
+    ), patch.object(settings, "HUGGINGFACE_API_KEY", "hf_test_token"):
         judge = RagasJudge()
         assert judge.source == "huggingface"
         assert judge.llm is not None
@@ -93,7 +95,11 @@ def test_ragas_evaluate_batch_mocked():
                 [
                     {
                         "query": "Where is the company headquartered?",
-                        "context": [{"chunk": "The company headquarters is located in San Francisco."}],
+                        "context": [
+                            {
+                                "chunk": "The company headquarters is located in San Francisco."
+                            }
+                        ],
                         "generated_answer": "San Francisco.",
                         "expected_answer": "The headquarters is in San Francisco.",
                     }

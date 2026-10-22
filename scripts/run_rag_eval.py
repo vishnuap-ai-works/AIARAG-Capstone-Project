@@ -136,9 +136,15 @@ def generate_report(
             f.write("| Ragas Metric | Value |\n")
             f.write("|---|---|\n")
             f.write(f"| Faithfulness | {metrics.get('Ragas Faithfulness', 'N/A')} |\n")
-            f.write(f"| Answer Relevancy | {metrics.get('Ragas Answer Relevancy', 'N/A')} |\n")
-            f.write(f"| Context Precision | {metrics.get('Ragas Context Precision', 'N/A')} |\n")
-            f.write(f"| Context Recall | {metrics.get('Ragas Context Recall', 'N/A')} |\n")
+            f.write(
+                f"| Answer Relevancy | {metrics.get('Ragas Answer Relevancy', 'N/A')} |\n"
+            )
+            f.write(
+                f"| Context Precision | {metrics.get('Ragas Context Precision', 'N/A')} |\n"
+            )
+            f.write(
+                f"| Context Recall | {metrics.get('Ragas Context Recall', 'N/A')} |\n"
+            )
 
             f.write("\n### Ragas Metrics by Path Level\n\n")
             f.write(
@@ -263,7 +269,9 @@ async def main():
             ragas_judge = None
 
     # Run evaluation
-    results = await run_evaluation(golden_dataset, pipeline, judge, ragas_judge=ragas_judge)
+    results = await run_evaluation(
+        golden_dataset, pipeline, judge, ragas_judge=ragas_judge
+    )
 
     # Save all results into a single json file in data/evals
     evals_dir = os.path.join(root_dir, "data", "evals")

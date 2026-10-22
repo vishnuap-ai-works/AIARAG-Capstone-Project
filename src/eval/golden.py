@@ -206,4 +206,3 @@ def aggregate_metrics(results: List[Dict]) -> Dict[str, Any]:
         aggregated["Ragas Context Recall"] = f"{avg('ragas_context_recall'):.2%}"
 
     return aggregated
-
