@@ -38,12 +38,21 @@ class BaseVectorStore(ABC):
         chunks: list,
         embeddings: list,
         sparse_embeddings: list = None,
+        kb_version: str = "v1.0",
+        is_tombstone: bool = False,
     ):
         """
         Adds a document's chunks and embeddings to the vector store.
         If the filename already exists, it overwrites the existing data to avoid duplication.
         """
         pass
+
+    def tombstone_document(self, filename: str, reason: str = "deprecated") -> bool:
+        """
+        Soft-deletes (tombstones) a document in the vector store so it is excluded from search
+        without physically removing its records.
+        """
+        return False
 
     @abstractmethod
     def search(
@@ -75,11 +84,15 @@ class JSONVectorStore(BaseVectorStore):
         chunks: list,
         embeddings: list,
         sparse_embeddings: list = None,
+        kb_version: str = None,
+        is_tombstone: bool = False,
     ):
         from rag.scratch import delete_from_json
 
         delete_from_json(filename)
         from config.settings import settings
+
+        version = kb_version or getattr(settings, "KB_VERSION", "v1.0")
 
         data = {}
         if os.path.exists(self.filepath):
@@ -92,7 +105,17 @@ class JSONVectorStore(BaseVectorStore):
         # Update or add the document entry
         chunk_data = []
         for i, (c, e) in enumerate(zip(chunks, embeddings)):
-            chunk_dict = {"chunk": c, "embedding": e}
+            chunk_dict = {
+                "chunk": c,
+                "embedding": e,
+                "metadata": {
+                    "file_name": filename,
+                    "file_type": file_type,
+                    "kb_version": str(version),
+                    "is_tombstone": bool(is_tombstone),
+                    "tombstoned_at": None,
+                },
+            }
             if sparse_embeddings:
                 chunk_dict["sparse_embedding"] = {
                     "indices": sparse_embeddings[i].indices.tolist(),
@@ -103,11 +126,40 @@ class JSONVectorStore(BaseVectorStore):
         data[filename] = {
             "file_name": filename,
             "file_type": file_type,
+            "kb_version": str(version),
+            "is_tombstone": bool(is_tombstone),
             "chunks": chunk_data,
         }
 
         with open(self.filepath, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
+
+    def tombstone_document(self, filename: str, reason: str = "deprecated") -> bool:
+        """Soft-deletes / marks a document and its chunks as tombstoned."""
+        from datetime import datetime, timezone
+
+        if not os.path.exists(self.filepath):
+            return False
+        with open(self.filepath, "r", encoding="utf-8") as f:
+            try:
+                data = json.load(f)
+            except json.JSONDecodeError:
+                return False
+
+        if filename in data:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            data[filename]["is_tombstone"] = True
+            data[filename]["tombstoned_at"] = now_iso
+            data[filename]["tombstone_reason"] = reason
+            for chunk_data in data[filename].get("chunks", []):
+                chunk_data.setdefault("metadata", {})
+                chunk_data["metadata"]["is_tombstone"] = True
+                chunk_data["metadata"]["tombstoned_at"] = now_iso
+                chunk_data["metadata"]["tombstone_reason"] = reason
+            with open(self.filepath, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+            return True
+        return False
 
     def search(
         self,
@@ -127,7 +179,15 @@ class JSONVectorStore(BaseVectorStore):
         sparse_results = []
 
         for filename, file_data in data.items():
+            # Skip tombstoned documents
+            if file_data.get("is_tombstone", False):
+                continue
+
             for chunk_data in file_data.get("chunks", []):
+                chunk_meta = chunk_data.get("metadata", {})
+                if chunk_meta.get("is_tombstone", False):
+                    continue
+
                 chunk_embed = chunk_data.get("embedding")
                 if chunk_embed and len(chunk_embed) == len(query_embedding):
                     # Compute dense cosine similarity
@@ -145,6 +205,10 @@ class JSONVectorStore(BaseVectorStore):
                         "metadata": {
                             "file_name": filename,
                             "file_type": file_data.get("file_type"),
+                            "kb_version": chunk_meta.get(
+                                "kb_version", file_data.get("kb_version", "v1.0")
+                            ),
+                            "is_tombstone": False,
                         },
                         "score": dense_similarity,
                     }
@@ -222,6 +286,8 @@ class ChromaDBStore(BaseVectorStore):
         chunks: list,
         embeddings: list,
         sparse_embeddings: list = None,
+        kb_version: str = None,
+        is_tombstone: bool = False,
     ):
         if not chunks or not embeddings:
             return
@@ -232,11 +298,19 @@ class ChromaDBStore(BaseVectorStore):
 
         from config.settings import settings
 
+        version = kb_version or getattr(settings, "KB_VERSION", "v1.0")
+
         ids = []
         metadata = []
         for i in range(len(chunks)):
             ids.append(f"{filename}_{i}")
-            meta = {"file_name": filename, "file_type": file_type}
+            meta = {
+                "file_name": filename,
+                "file_type": file_type,
+                "kb_version": str(version),
+                "is_tombstone": bool(is_tombstone),
+                "tombstoned_at": "",
+            }
             if sparse_embeddings:
                 import json
 
@@ -252,6 +326,32 @@ class ChromaDBStore(BaseVectorStore):
             documents=chunks, embeddings=embeddings, metadatas=metadata, ids=ids
         )
 
+    def tombstone_document(self, filename: str, reason: str = "deprecated") -> bool:
+        """Soft-deletes / marks all chunks of a document as tombstoned in ChromaDB."""
+        from datetime import datetime, timezone
+
+        try:
+            items = self.collection.get(where={"file_name": filename})
+            if items and items.get("ids"):
+                now_iso = datetime.now(timezone.utc).isoformat()
+                updated_metas = []
+                for m in items["metadatas"]:
+                    m_dict = dict(m) if m else {}
+                    m_dict["is_tombstone"] = True
+                    m_dict["tombstoned_at"] = now_iso
+                    m_dict["tombstone_reason"] = reason
+                    updated_metas.append(m_dict)
+                self.collection.update(ids=items["ids"], metadatas=updated_metas)
+                return True
+            return False
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).error(
+                f"Failed to tombstone {filename} in ChromaDB: {e}"
+            )
+            return False
+
     def search(
         self,
         query_embedding: list[float],
@@ -265,17 +365,21 @@ class ChromaDBStore(BaseVectorStore):
         # We fall back to standard dense retrieval.
         try:
             result = self.collection.query(
-                query_embeddings=[query_embedding], n_results=top_k
+                query_embeddings=[query_embedding], n_results=top_k * 2
             )
 
             results = []
             for i in range(len(result["documents"][0])):
                 doc = result["documents"][0][i]
-                metadata = result["metadatas"][0][i]
+                metadata = result["metadatas"][0][i] if result["metadatas"] else {}
+                if metadata and metadata.get("is_tombstone") is True:
+                    continue
                 dist = result["distances"][0][i]
                 score = 1.0 - dist if 0 <= dist <= 2 else dist
 
                 results.append({"chunk": doc, "metadata": metadata, "score": score})
+                if len(results) >= top_k:
+                    break
             return results
         except Exception as e:
             import logging
@@ -311,6 +415,8 @@ class QdrantStore(BaseVectorStore):
         chunks: list,
         embeddings: list,
         sparse_embeddings: list = None,
+        kb_version: str = None,
+        is_tombstone: bool = False,
     ):
         if not chunks or not embeddings:
             return
@@ -320,6 +426,8 @@ class QdrantStore(BaseVectorStore):
             SparseVectorParams,
             VectorParams,
         )
+
+        version = kb_version or getattr(settings, "KB_VERSION", "v1.0")
 
         if not self.collection_exist:
             # Check if collection exists
@@ -375,10 +483,45 @@ class QdrantStore(BaseVectorStore):
                         "chunk": chunk,
                         "file_name": filename,
                         "file_type": file_type,
+                        "kb_version": str(version),
+                        "is_tombstone": bool(is_tombstone),
+                        "tombstoned_at": None,
                     },
                 )
             )
         self.client.upsert(collection_name=self.collection_name, points=points)
+
+    def tombstone_document(self, filename: str, reason: str = "deprecated") -> bool:
+        """Soft-deletes / marks a document and its points as tombstoned in Qdrant."""
+        from datetime import datetime, timezone
+        from qdrant_client import models
+
+        try:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            self.client.set_payload(
+                collection_name=self.collection_name,
+                payload={
+                    "is_tombstone": True,
+                    "tombstoned_at": now_iso,
+                    "tombstone_reason": reason,
+                },
+                points=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="file_name",
+                            match=models.MatchValue(value=filename),
+                        )
+                    ]
+                ),
+            )
+            return True
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).error(
+                f"Failed to tombstone {filename} in Qdrant: {e}"
+            )
+            return False
 
     def search(
         self,
@@ -398,15 +541,17 @@ class QdrantStore(BaseVectorStore):
                             values=sparse_embedding["values"],
                         ),
                         using="sparse",
-                        limit=top_k,
+                        limit=top_k * 2,
                     ),
-                    models.Prefetch(query=query_embedding, using="dense", limit=top_k),
+                    models.Prefetch(
+                        query=query_embedding, using="dense", limit=top_k * 2
+                    ),
                 ]
                 temp = self.client.query_points(
                     collection_name=self.collection_name,
                     prefetch=prefetch,
                     query=models.FusionQuery(fusion=models.Fusion.RRF),
-                    limit=top_k,
+                    limit=top_k * 2,
                 )
             else:
                 # Try with named vector "dense" first (new schema)
@@ -414,7 +559,7 @@ class QdrantStore(BaseVectorStore):
                     collection_name=self.collection_name,
                     query=query_embedding,
                     using="dense",
-                    limit=top_k,
+                    limit=top_k * 2,
                 )
         except Exception as e:
             try:
@@ -422,7 +567,7 @@ class QdrantStore(BaseVectorStore):
                 temp = self.client.query_points(
                     collection_name=self.collection_name,
                     query=query_embedding,
-                    limit=top_k,
+                    limit=top_k * 2,
                 )
             except Exception as e2:
                 import logging
@@ -434,16 +579,22 @@ class QdrantStore(BaseVectorStore):
 
         results = []
         for item in temp.points:
+            if item.payload.get("is_tombstone", False) is True:
+                continue
             results.append(
                 {
                     "chunk": item.payload["chunk"],
                     "metadata": {
                         "file_name": item.payload["file_name"],
                         "file_type": item.payload["file_type"],
+                        "kb_version": item.payload.get("kb_version", "v1.0"),
+                        "is_tombstone": False,
                     },
                     "score": item.score,
                 }
             )
+            if len(results) >= top_k:
+                break
         return results
 
 

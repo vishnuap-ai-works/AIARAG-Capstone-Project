@@ -70,7 +70,7 @@ This is the heart of the system where raw documents are transformed into AI-read
 ## ⚙️ 2. Data Persistence & Orchestration (`src/pipeline/`)
 This module acts as the "Conductor" tying the independent RAG modules together into sequential workflows.
 
-- **`store.py`**: Contains the `DocumentIngestionPipeline`. This is the orchestrator for ingesting data. By using Dependency Injection, it accepts a chunker and embedder, then runs a strict pipeline: **Load -> Redact PII -> Chunk -> Embed -> Store**. It includes recursive directory walking, robust `try/except` error handling, and comprehensive logging.
+- **`store.py`**: Contains the `DocumentIngestionPipeline`. This is the orchestrator for ingesting data. By using Dependency Injection, it accepts a chunker and embedder, then runs a strict pipeline: **Load -> Redact PII -> Chunk -> Embed -> Store**. It enriches every chunk with Knowledge Base Versioning (`kb_version`) and Tombstone soft-deletion flags (`is_tombstone`, `tombstone_file`), ensuring old/deprecated documents are safely filtered from retrieval without index degradation. For full details, see [docs/read_me/INGESTION.md](file:///Users/anya/Documents/OktaSkill/AIRAG/AIARAG-Capstone-Project%20copy/docs/read_me/INGESTION.md).
 - **`inference.py`**: The orchestrator for the "Query" side of the pipeline (taking a user question and returning an answer). It successfully ties together the `retriever`, `reranker`, and `generator` to output a final synthesized response. It also coordinates PII redaction on both the input query and the final generated output.
 
 ## 🧪 3. Evaluation System (`src/eval/`)

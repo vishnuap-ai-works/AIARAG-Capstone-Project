@@ -106,3 +106,99 @@ def test_cross_encoder_reranker_sigmoid_calculation(caplog):
             in record.message
             for record in caplog.records
         )
+
+
+def test_json_vector_store_kb_version_and_tombstone(tmp_path):
+    """Verify that JSONVectorStore records kb_version and properly filters tombstoned docs."""
+    from rag.vector_store import JSONVectorStore
+    import json
+
+    db_file = str(tmp_path / "test_store.json")
+    store = JSONVectorStore(filepath=db_file)
+
+    # 1. Add active document with specific kb_version
+    store.add_document(
+        filename="handbook.md",
+        file_type="md",
+        chunks=["PTO policy: 20 days off."],
+        embeddings=[[0.5, 0.5, 0.0]],
+        kb_version="v2.0",
+        is_tombstone=False,
+    )
+
+    with open(db_file, "r") as f:
+        data = json.load(f)
+    assert data["handbook.md"]["kb_version"] == "v2.0"
+    assert data["handbook.md"]["is_tombstone"] is False
+    assert data["handbook.md"]["chunks"][0]["metadata"]["kb_version"] == "v2.0"
+    assert data["handbook.md"]["chunks"][0]["metadata"]["is_tombstone"] is False
+
+    # Search should find the document
+    results = store.search(query_embedding=[0.5, 0.5, 0.0], top_k=1)
+    assert len(results) == 1
+    assert results[0]["chunk"] == "PTO policy: 20 days off."
+    assert results[0]["metadata"]["kb_version"] == "v2.0"
+
+    # 2. Tombstone the document
+    success = store.tombstone_document("handbook.md", reason="superseded by v3.0")
+    assert success is True
+
+    with open(db_file, "r") as f:
+        data_after = json.load(f)
+    assert data_after["handbook.md"]["is_tombstone"] is True
+    assert data_after["handbook.md"]["tombstone_reason"] == "superseded by v3.0"
+    assert "tombstoned_at" in data_after["handbook.md"]
+
+    # Search should now exclude tombstoned document
+    results_after = store.search(query_embedding=[0.5, 0.5, 0.0], top_k=1)
+    assert len(results_after) == 0
+
+
+@pytest.mark.anyio
+async def test_document_ingestion_pipeline_kb_version_and_tombstone(tmp_path):
+    """Verify that DocumentIngestionPipeline passes kb_version and delegates tombstoning."""
+    from pipeline.store import DocumentIngestionPipeline
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.tombstone_document.return_value = True
+
+    mock_loader = AsyncMock()
+    mock_loader.load.return_value = "Sample handbook text content"
+
+    mock_chunker = MagicMock()
+    mock_chunker.chunk = AsyncMock(return_value=["Sample handbook text chunk"])
+
+    mock_embedder = MagicMock()
+    mock_embedder.get_embedded = AsyncMock(return_value=[[0.1, 0.2, 0.3]])
+    mock_embedder.get_sparse_embedded = MagicMock(return_value=None)
+
+    pipeline = DocumentIngestionPipeline(
+        chunker=mock_chunker,
+        embedder=mock_embedder,
+        vector_store=mock_vector_store,
+    )
+
+    test_file = tmp_path / "benefits.txt"
+    test_file.write_text("Sample handbook text content")
+
+    with patch("pipeline.store.DocumentLoadFactory.get_loader", return_value=mock_loader):
+        chunks = await pipeline.ingest_file(test_file, kb_version="v4.2")
+
+    assert chunks == ["Sample handbook text chunk"]
+    mock_vector_store.add_document.assert_called_once_with(
+        filename="benefits.txt",
+        file_type="txt",
+        chunks=["Sample handbook text chunk"],
+        embeddings=[[0.1, 0.2, 0.3]],
+        sparse_embeddings=None,
+        kb_version="v4.2",
+        is_tombstone=False,
+    )
+
+    # Test tombstone delegation
+    res = pipeline.tombstone_file("benefits.txt", reason="policy sunset")
+    assert res is True
+    mock_vector_store.tombstone_document.assert_called_once_with(
+        "benefits.txt", reason="policy sunset"
+    )
+

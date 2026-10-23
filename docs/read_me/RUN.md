@@ -20,6 +20,7 @@ The ingestion script relies on environment variables to know where your data is 
    Open the newly created `.env` file in your code editor and fill in the missing information:
    
    * **`DATA_DIRECTORY`**: Provide the absolute path to the folder where your raw `.md` or `.txt` files live. (e.g., `/Users/yourname/Documents/.../data/test/`)
+   * **`KB_VERSION`**: Knowledge Base version tag stamped onto all ingested chunks and documents (e.g., `v1.0`, `v2.0`). For details on versioning and soft-deletion tombstones, see [docs/read_me/INGESTION.md](file:///Users/anya/Documents/OktaSkill/AIRAG/AIARAG-Capstone-Project%20copy/docs/read_me/INGESTION.md).
    * **`EMBEDDING_MODEL_SOURCE`**: Set this to `openai`, `ollama`, or `docker` depending on what you want to use.
    * **`OPENAI_API_KEY`**: If using OpenAI, paste your secret API key here.
    * **`USE_HYBRID_SEARCH` / `USE_HYBRID_EMBEDDING`**: Set to `true` to enable sparse vectors (keyword search via `fastembed` SPLADE) and Reciprocal Rank Fusion (RRF) in your vector store.

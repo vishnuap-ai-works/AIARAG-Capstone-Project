@@ -38,13 +38,14 @@ class DocumentIngestionPipeline:
 
             self.redactor = PIIRedactor()
 
-    async def ingest_file(self, path) -> list[str]:
+    async def ingest_file(self, path, kb_version: str = None) -> list[str]:
         try:
             path_obj = Path(path)
             file_name = path_obj.name
             file_type = path_obj.suffix.lstrip(".")
+            version = kb_version or getattr(settings, "KB_VERSION", "v1.0")
 
-            logger.info(f"1. Loading Document.....{file_name}")
+            logger.info(f"1. Loading Document.....{file_name} (KB Version: {version})")
             loader = DocumentLoadFactory.get_loader(path_obj)
             text_content = await loader.load()
             logger.info(f"Successfully loaded document: {file_name}")
@@ -69,15 +70,17 @@ class DocumentIngestionPipeline:
                         f"Successfully generated {len(sparse_embedded)} sparse embeddings."
                     )
 
-            logger.info(f"4. Vector Storage.....{file_name}")
+            logger.info(f"4. Vector Storage.....{file_name} [KB Version: {version}, Tombstone: False]")
 
-            # Store the data in the vector store
+            # Store the data in the vector store with KB version and tombstone metadata
             self.vector_store.add_document(
                 filename=file_name,
                 file_type=file_type,
                 chunks=chunks,
                 embeddings=embedded,
                 sparse_embeddings=sparse_embedded,
+                kb_version=version,
+                is_tombstone=False,
             )
             logger.info(f"Successfully completed vector storage for: {file_name}")
             return chunks
@@ -85,7 +88,20 @@ class DocumentIngestionPipeline:
             logger.error(f"Failed to ingest file {file_name}: {e}")
             raise
 
-    async def ingest_directory(self, path) -> list[str]:
+    def tombstone_file(self, filename: str, reason: str = "deprecated") -> bool:
+        """
+        Soft-deletes (tombstones) a document in the vector store so it is excluded from search
+        while preserving historical records and audit lineage.
+        """
+        logger.info(f"Tombstoning document: {filename} (reason: {reason})")
+        if hasattr(self.vector_store, "tombstone_document"):
+            return self.vector_store.tombstone_document(filename, reason=reason)
+        logger.warning(
+            f"Active vector store does not implement tombstone_document for: {filename}"
+        )
+        return False
+
+    async def ingest_directory(self, path, kb_version: str = None) -> list[str]:
         try:
             path = Path(path)
             all_files = []
@@ -93,7 +109,9 @@ class DocumentIngestionPipeline:
 
             for file in files:
                 if file.is_file():
-                    all_files.append(await self.ingest_file(file))
+                    all_files.append(
+                        await self.ingest_file(file, kb_version=kb_version)
+                    )
 
             return all_files
         except Exception as e:
